@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astronomical Calendar (Checklist Goals & Holiday History)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Dark blue-gray background */
+            color: #e2e8f0; /* Light gray text */
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px; /* Gap between day cells */
+        }
+        .day-header {
+            background-color: #1e293b;
+            padding: 8px 4px;
+            text-align: center;
+            font-weight: 600;
+            border-radius: 0.25rem;
+        }
+        .day-cell {
+            background-color: #1e293b;
+            min-height: 120px; /* Increased height to accommodate more text */
+            padding: 8px;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            position: relative;
+        }
+        .day-cell.today {
+            border: 2px solid #3b82f6; /* Blue border for today */
+        }
+        .day-number {
+            font-weight: 700;
+            font-size: 1.25rem; /* text-xl */
+            margin-bottom: 4px;
+            z-index: 10; /* Ensure day number is above moon icon if they overlap */
+        }
+        .event-text {
+            font-size: 0.75rem; /* text-xs */
+            line-height: 1.2;
+            margin-top: 2px;
+            padding-left: 4px;
+            border-left: 2px solid;
+            white-space: normal; /* Allow text to wrap */
+            width: 100%;
+        }
+        /* Event Type Colors */
+        .retrograde {
+            border-left-color: #ef4444; /* Red for retrogrades */
+            color: #fca5a5; /* Lighter red text */
+        }
+        .meteor-shower {
+            border-left-color: #3b82f6; /* Blue for meteor showers */
+            color: #93c5fd; /* Lighter blue text */
+        }
+        .eclipse {
+            border-left-color: #a855f7; /* Purple for eclipses */
+            color: #d8b4fe; /* Lighter purple text */
+        }
+        .moon-phase {
+            border-left-color: #f59e0b; /* Yellow/Orange for moon phases */
+            color: #fcd34d; /* Lighter yellow text */
+        }
+        .other-event {
+            border-left-color: #10b981; /* Green for other events */
+            color: #6ee7b7; /* Lighter green text */
+        }
+        .holiday { /* New style for holidays */
+            border-left-color: #f97316; /* Orange for holidays */
+            color: #fed7aa; /* Lighter orange text */
+        }
+        .moon-icon {
+            font-size: 1.5rem; /* Larger icon */
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 5; /* Ensure moon icon is below day number */
+        }
+        /* Holiday history specific styles */
+        .holiday-history-toggle {
+            font-size: 0.65rem; /* Even smaller text for toggle */
+            color: #94a3b8; /* Grayish text */
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 4px;
+            display: block;
+        }
+        .holiday-history-content {
+            font-size: 0.6rem; /* Smallest text for history */
+            color: #cbd5e1; /* Lighter gray */
+            background-color: #334155; /* Darker background for history box */
+            padding: 4px;
+            border-radius: 0.25rem;
+            margin-top: 4px;
+            display: none; /* Hidden by default */
+            max-height: 80px; /* Limit height */
+            overflow-y: auto; /* Scroll if content overflows */
+        }
+        .holiday-history-content.expanded {
+            display: block;
+        }
+        .goals-card {
+            background-color: #1e293b;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+        .goal-item {
+            display: flex;
+            align-items: center;
+            background-color: #334155;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            color: #e2e8f0;
+        }
+        .goal-item input[type="checkbox"] {
+            margin-right: 0.75rem; /* Space between checkbox and text */
+            min-width: 1rem; /* Ensure checkbox is visible */
+            min-height: 1rem;
+            accent-color: #3b82f6; /* Blue checkbox */
+            cursor: pointer;
+        }
+        .goal-text {
+            flex-grow: 1; /* Allow text to take up remaining space */
+            outline: none; /* Remove outline on focus */
+            white-space: normal; /* Allow text to wrap */
+            word-break: break-word; /* Break long words */
+        }
+        .goal-text:empty:before {
+            content: attr(data-placeholder); /* Use data-placeholder for empty state */
+            color: #94a3b8;
+        }
+        .goal-text.completed {
+            text-decoration: line-through;
+            color: #94a3b8; /* Faded color for completed tasks */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
+
+    <!-- Header -->
+    <header class="w-full max-w-5xl text-center mb-10">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-4">
+            Astronomical Calendar
+        </h1>
+        <p class="text-lg sm:text-xl text-gray-300">
+            Explore celestial events, USA federal holidays, and set your monthly goals.
+        </p>
+    </header>
+
+    <!-- Calendar Navigation -->
+    <div class="w-full max-w-5xl flex justify-between items-center mb-6">
+        <button id="prevMonth" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xl">
+            &lt;
+        </button>
+        <h2 id="currentMonthYear" class="text-3xl sm:text-4xl font-bold text-white"></h2>
+        <button id="nextMonth" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xl">
+            &gt;
+        </button>
+    </div>
+
+    <!-- Calendar Grid -->
+    <main class="w-full max-w-5xl bg-gray-900 p-6 rounded-lg shadow-xl mb-10">
+        <div class="calendar-grid mb-4">
+            <div class="day-header">Sun</div>
+            <div class="day-header">Mon</div>
+            <div class="day-header">Tue</div>
+            <div class="day-header">Wed</div>
+            <div class="day-header">Thu</div>
+            <div class="day-header">Fri</div>
+            <div class="day-header">Sat</div>
+        </div>
+        <div id="calendarDays" class="calendar-grid">
+            <!-- Calendar days will be dynamically inserted here by JavaScript -->
+        </div>
+    </main>
+
+    <!-- Top 5 Goals for the Month Section -->
+    <section class="w-full max-w-5xl goals-card mb-10">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white mb-6 text-center border-b border-gray-700 pb-3">
+            Top 5 Goals for <span id="goalsMonthYear">This Month</span>
+        </h2>
+        <div class="space-y-3" id="goalsContainer">
+            <!-- Goal items will be dynamically inserted here -->
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-5xl text-center mt-10 text-gray-500 text-sm">
+        <p>&copy; Astronomical Calendar. Data compiled from various astronomical sources and USA federal holiday schedules.</p>
+    </footer>
+
+    <script>
+        // Data for USA Federal Holidays
+        const usaHolidays = [
+            // 2025 Holidays
+            { date: '2025-01-01', name: 'New Year\'s Day', type: 'holiday', history: 'Celebrates the start of the new year and a time for resolutions.' },
+            { date: '2025-01-20', name: 'Martin Luther King, Jr. Day', type: 'holiday', history: 'Honors the life and legacy of civil rights leader Martin Luther King, Jr.' },
+            { date: '2025-02-17', name: 'Washington\'s Birthday (Presidents\' Day)', type: 'holiday', history: 'Originally celebrated George Washington\'s birthday, now honors all U.S. presidents.' },
+            { date: '2025-05-26', name: 'Memorial Day', type: 'holiday', history: 'Commemorates U.S. military personnel who died while serving their country.' },
+            { date: '2025-06-19', name: 'Juneteenth National Independence Day', type: 'holiday', history: 'Commemorates the emancipation of enslaved African Americans in the U.S.' },
+            { date: '2025-07-04', name: 'Independence Day', type: 'holiday', history: 'Celebrates the adoption of the Declaration of Independence in 1776.' },
+            { date: '2025-09-01', name: 'Labor Day', type: 'holiday', history: 'Honors the contributions of American workers to the country\'s strength and prosperity.' },
+            { date: '2025-10-13', name: 'Columbus Day', type: 'holiday', history: 'Commemorates Christopher Columbus\'s arrival in the Americas. Also recognized as Indigenous Peoples\' Day in many areas.' },
+            { date: '2025-11-11', name: 'Veterans Day', type: 'holiday', history: 'Honors all military veterans who have served in the U.S. Armed Forces.' },
+            { date: '2025-11-27', name: 'Thanksgiving Day', type: 'holiday', history: 'A day of gratitude, traditionally celebrating the harvest and other blessings of the past year.' },
+            { date: '2025-12-25', name: 'Christmas Day', type: 'holiday', history: 'Celebrates the birth of Jesus Christ, observed by Christians worldwide.' },
+            // 2026 Holidays
+            { date: '2026-01-01', name: 'New Year\'s Day', type: 'holiday', history: 'Celebrates the start of the new year and a time for resolutions.' },
+            { date: '2026-01-19', name: 'Martin Luther King, Jr. Day', type: 'holiday', history: 'Honors the life and legacy of civil rights leader Martin Luther King, Jr.' },
+            { date: '2026-02-16', name: 'Washington\'s Birthday (Presidents\' Day)', type: 'holiday', history: 'Originally celebrated George Washington\'s birthday, now honors all U.S. presidents.' },
+            { date: '2026-05-25', name: 'Memorial Day', type: 'holiday', history: 'Commemorates U.S. military personnel who died while serving their country.' },
+            { date: '2026-06-19', name: 'Juneteenth National Independence Day', type: 'holiday', history: 'Commemorates the emancipation of enslaved African Americans in the U.S.' },
+            { date: '2026-07-03', name: 'Independence Day (Observed)', type: 'holiday', history: 'Celebrates the adoption of the Declaration of Independence in 1776.' }, // July 4th is Saturday
+            { date: '2026-09-07', name: 'Labor Day', type: 'holiday', history: 'Honors the contributions of American workers to the country\'s strength and prosperity.' },
+            { date: '2026-10-12', name: 'Columbus Day', type: 'holiday', history: 'Commemorates Christopher Columbus\'s arrival in the Americas. Also recognized as Indigenous Peoples\' Day in many areas.' },
+            { date: '2026-11-11', name: 'Veterans Day', type: 'holiday', history: 'Honors all military veterans who have served in the U.S. Armed Forces.' },
+            { date: '2026-11-26', name: 'Thanksgiving Day', type: 'holiday', history: 'A day of gratitude, traditionally celebrating the harvest and other blessings of the past year.' },
+            { date: '2026-12-25', name: 'Christmas Day', type: 'holiday', history: 'Celebrates the birth of Jesus Christ, observed by Christians worldwide.' },
+            // 2027 Holidays
+            { date: '2027-01-01', name: 'New Year\'s Day', type: 'holiday', history: 'Celebrates the start of the new year and a time for resolutions.' },
+            { date: '2027-01-18', name: 'Martin Luther King, Jr. Day', type: 'holiday', history: 'Honors the life and legacy of civil rights leader Martin Luther King, Jr.' },
+            { date: '2027-02-15', name: 'Washington\'s Birthday (Presidents\' Day)', type: 'holiday', history: 'Originally celebrated George Washington\'s birthday, now honors all U.S. presidents.' },
+            { date: '2027-05-31', name: 'Memorial Day', type: 'holiday', history: 'Commemorates U.S. military personnel who died while serving their country.' },
+            { date: '2027-06-18', name: 'Juneteenth National Independence Day (Observed)', type: 'holiday', history: 'Commemorates the emancipation of enslaved African Americans in the U.S.' }, // June 19th is Saturday
+            { date: '2027-07-05', name: 'Independence Day (Observed)', type: 'holiday', history: 'Celebrates the adoption of the Declaration of Independence in 1776.' }, // July 4th is Sunday
+            { date: '2027-09-06', name: 'Labor Day', type: 'holiday', history: 'Honors the contributions of American workers to the country\'s strength and prosperity.' },
+            { date: '2027-10-11', name: 'Columbus Day', type: 'holiday', history: 'Commemorates Christopher Columbus\'s arrival in the Americas. Also recognized as Indigenous Peoples\' Day in many areas.' },
+            { date: '2027-11-11', name: 'Veterans Day', type: 'holiday', history: 'Honors all military veterans who have served in the U.S. Armed Forces.' },
+            { date: '2027-11-25', name: 'Thanksgiving Day', type: 'holiday', history: 'A day of gratitude, traditionally celebrating the harvest and other blessings of the past year.' },
+            { date: '2027-12-25', name: 'Christmas Day', type: 'holiday', history: 'Celebrates the birth of Jesus Christ, observed by Christians worldwide.' },
+        ];
+
+        // Data for astronomical events
+        const astronomicalEvents = [
+            // 2025 Events
+            { date: '2025-01-03', name: 'Quadrantid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 80.' },
+            { date: '2025-01-04', name: 'Saturn & Moon Close Approach', type: 'other-event' },
+            { date: '2025-01-10', name: 'Venus at Greatest Elongation East', type: 'other-event' },
+            { date: '2025-01-13', name: 'Full Moon (Wolf Moon)', type: 'moon-phase' },
+            { date: '2025-01-16', name: 'Mars at Opposition', type: 'other-event' },
+            { date: '2025-01-29', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-02-09', name: 'Mars & Moon Close Approach', type: 'other-event' },
+            { date: '2025-02-12', name: 'Full Moon (Snow Moon)', type: 'moon-phase' },
+            { date: '2025-02-16', name: 'Venus at Greatest Brightness', type: 'other-event' },
+            { date: '2025-02-28', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-03-08', name: 'Mercury at Greatest Elongation East', type: 'other-event' },
+            { date: '2025-03-13', name: 'Total Lunar Eclipse (Blood Moon) Begins', type: 'eclipse', description: 'Visible N/S America, W Europe/Africa, NZ.' },
+            { date: '2025-03-14', name: 'Total Lunar Eclipse (Blood Moon) Ends', type: 'eclipse', description: 'Visible N/S America, W Europe/Africa, NZ.' },
+            { date: '2025-03-14', name: 'Full Moon (Worm Moon)', type: 'moon-phase' },
+            { date: '2025-03-20', name: 'March Equinox', type: 'other-event' },
+            { date: '2025-03-29', name: 'Partial Solar Eclipse', type: 'eclipse', description: 'Visible Europe, NE N. America.' },
+            { date: '2025-03-29', name: 'New Moon (Super New Moon)', type: 'moon-phase' },
+            { date: '2025-04-13', name: 'Full Moon (Pink Moon)', type: 'moon-phase' },
+            { date: '2025-04-22', name: 'Lyrid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 18.' },
+            { date: '2025-04-27', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-05-05', name: 'Eta Aquariid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 50.' },
+            { date: '2025-05-06', name: 'Eta Aquariid Meteor Shower Peak (cont.)', type: 'meteor-shower', description: 'ZHR: 50.' },
+            { date: '2025-05-12', name: 'Full Moon (Flower Moon)', type: 'moon-phase' },
+            { date: '2025-05-27', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-05-31', name: 'Venus at Greatest Western Elongation', type: 'other-event' },
+            { date: '2025-06-11', name: 'Full Moon (Strawberry Moon)', type: 'moon-phase' },
+            { date: '2025-06-21', name: 'June Solstice', type: 'other-event' },
+            { date: '2025-06-25', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-07-10', name: 'Full Moon (Buck Moon)', type: 'moon-phase' },
+            { date: '2025-07-13', name: 'Saturn Retrograde Begins', type: 'retrograde', description: 'Period for reflection on life structures.' },
+            { date: '2025-07-17', name: 'Mercury Retrograde in Leo Begins', type: 'retrograde', description: 'Expect potential delays and miscommunications.' },
+            { date: '2025-07-24', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-07-30', name: 'Southern Delta Aquariid Peak', type: 'meteor-shower', description: 'ZHR: 25.' },
+            { date: '2025-07-31', name: 'Southern Delta Aquariid Peak (cont.)', type: 'meteor-shower', description: 'ZHR: 25.' },
+            { date: '2025-08-09', name: 'Full Moon (Sturgeon Moon)', type: 'moon-phase' },
+            { date: '2025-08-10', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2025-08-11', name: 'Perseid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 100.' },
+            { date: '2025-08-12', name: 'Perseid Meteor Shower Peak (cont.)', type: 'meteor-shower', description: 'ZHR: 100.' },
+            { date: '2025-08-23', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-09-07', name: 'Full Moon (Corn Moon)', type: 'moon-phase' },
+            { date: '2025-09-07', name: 'Total Lunar Eclipse (Blood Moon)', type: 'eclipse', description: 'Not visible from Americas.' },
+            { date: '2025-09-08', name: 'Total Lunar Eclipse (Blood Moon) (cont.)', type: 'eclipse', description: 'Not visible from Americas.' },
+            { date: '2025-09-21', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-09-21', name: 'Partial Solar Eclipse', type: 'eclipse', description: 'Not visible from N. America.' },
+            { date: '2025-09-21', name: 'Saturn at Opposition', type: 'other-event' },
+            { date: '2025-09-23', name: 'Neptune at Opposition', type: 'other-event' },
+            { date: '2025-10-06', name: 'Full Moon (Harvest Moon)', type: 'moon-phase' },
+            { date: '2025-10-08', name: 'Draconid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10.' },
+            { date: '2025-10-21', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-10-21', name: 'Orionid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 20.' },
+            { date: '2025-11-04', name: 'Full Moon (Beaver Moon)', type: 'moon-phase' },
+            { date: '2025-11-09', name: 'Mercury Retrograde in Sagittarius Begins', type: 'retrograde', description: 'Another period for introspection and review.' },
+            { date: '2025-11-17', name: 'Leonid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10-15.' },
+            { date: '2025-11-19', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-11-28', name: 'Saturn Retrograde Ends', type: 'retrograde' },
+            { date: '2025-11-29', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2025-12-04', name: 'Full Moon (Cold Moon)', type: 'moon-phase' },
+            { date: '2025-12-13', name: 'Geminid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 150.' },
+            { date: '2025-12-14', name: 'Geminid Meteor Shower Peak (cont.)', type: 'meteor-shower', description: 'ZHR: 150.' },
+            { date: '2025-12-20', name: 'New Moon', type: 'moon-phase' },
+            { date: '2025-12-21', name: 'December Solstice', type: 'other-event' },
+            { date: '2025-12-22', name: 'Ursid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10.' },
+            { date: '2025-12-23', name: 'Ursid Meteor Shower Peak (cont.)', type: 'meteor-shower', description: 'ZHR: 10.' },
+
+            // 2026 Events
+            { date: '2026-01-01', name: 'Full Moon (Wolf Moon)', type: 'moon-phase' },
+            { date: '2026-01-03', name: 'Quadrantid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 80.' },
+            { date: '2026-01-30', name: 'New Moon', type: 'moon-phase' },
+            { date: '2026-01-31', name: 'Full Moon (Blue Moon)', type: 'moon-phase' }, // Second Full Moon in Jan
+            { date: '2026-02-17', name: 'Partial Solar Eclipse', type: 'eclipse', description: 'Visible from Antarctica, parts of South America.' },
+            { date: '2026-02-26', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2026-03-02', name: 'Full Moon (Worm Moon)', type: 'moon-phase' },
+            { date: '2026-03-20', name: 'March Equinox', type: 'other-event' },
+            { date: '2026-03-20', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2026-03-31', name: 'Full Moon (Pink Moon)', type: 'moon-phase' },
+            { date: '2026-04-22', name: 'Lyrid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 18.' },
+            { date: '2026-04-30', name: 'Full Moon (Flower Moon)', type: 'moon-phase' },
+            { date: '2026-05-05', name: 'Eta Aquariid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 50.' },
+            { date: '2026-05-26', name: 'Saturn Retrograde Begins', type: 'retrograde' },
+            { date: '2026-05-29', name: 'Full Moon (Strawberry Moon)', type: 'moon-phase' },
+            { date: '2026-06-21', name: 'June Solstice', type: 'other-event' },
+            { date: '2026-06-28', name: 'Full Moon (Buck Moon)', type: 'moon-phase' },
+            { date: '2026-06-29', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2026-07-23', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2026-07-28', name: 'Full Moon (Sturgeon Moon)', type: 'moon-phase' },
+            { date: '2026-07-28', name: 'Southern Delta Aquariid Peak', type: 'meteor-shower', description: 'ZHR: 25.' },
+            { date: '2026-08-12', name: 'Perseid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 100.' },
+            { date: '2026-08-12', name: 'Total Solar Eclipse', type: 'eclipse', description: 'Visible from Greenland, Iceland, Spain, Portugal, Russia.' },
+            { date: '2026-08-26', name: 'Full Moon (Corn Moon)', type: 'moon-phase' },
+            { date: '2026-08-27', name: 'Partial Lunar Eclipse', type: 'eclipse', description: 'Visible from Europe, Africa, Asia, Australia.' },
+            { date: '2026-09-22', name: 'September Equinox', type: 'other-event' },
+            { date: '2026-09-25', name: 'Full Moon (Harvest Moon)', type: 'moon-phase' },
+            { date: '2026-10-10', name: 'Saturn Retrograde Ends', type: 'retrograde' },
+            { date: '2026-10-21', name: 'Orionid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 20.' },
+            { date: '2026-10-24', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2026-10-24', name: 'Full Moon (Hunter\'s Moon)', type: 'moon-phase' },
+            { date: '2026-11-13', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2026-11-17', name: 'Leonid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10-15.' },
+            { date: '2026-11-23', name: 'Full Moon (Beaver Moon)', type: 'moon-phase' },
+            { date: '2026-12-13', name: 'Geminid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 150.' },
+            { date: '2026-12-21', name: 'December Solstice', type: 'other-event' },
+            { date: '2026-12-22', name: 'Ursid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10.' },
+            { date: '2026-12-23', name: 'Full Moon (Cold Moon)', type: 'moon-phase' },
+
+            // 2027 Events
+            { date: '2027-01-22', name: 'Full Moon (Wolf Moon)', type: 'moon-phase' },
+            { date: '2027-02-06', name: 'Annular Solar Eclipse', type: 'eclipse', description: 'Visible from South America, Africa.' },
+            { date: '2027-02-09', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2027-02-21', name: 'Full Moon (Snow Moon)', type: 'moon-phase' },
+            { date: '2027-02-20', name: 'Partial Lunar Eclipse', type: 'eclipse', description: 'Visible from Europe, Africa, Asia, Australia.' },
+            { date: '2027-03-03', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2027-03-20', name: 'March Equinox', type: 'other-event' },
+            { date: '2027-03-22', name: 'Full Moon (Worm Moon)', type: 'moon-phase' },
+            { date: '2027-04-21', name: 'Full Moon (Pink Moon)', type: 'moon-phase' },
+            { date: '2027-04-22', name: 'Lyrid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 18.' },
+            { date: '2027-05-20', name: 'Full Moon (Flower Moon)', type: 'moon-phase' },
+            { date: '2027-05-05', name: 'Eta Aquariid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 50.' },
+            { date: '2027-06-10', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2027-06-10', name: 'Saturn Retrograde Begins', type: 'retrograde' },
+            { date: '2027-06-19', name: 'Full Moon (Strawberry Moon)', type: 'moon-phase' },
+            { date: '2027-06-21', name: 'June Solstice', type: 'other-event' },
+            { date: '2027-07-04', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2027-07-19', name: 'Full Moon (Buck Moon)', type: 'moon-phase' },
+            { date: '2027-07-28', name: 'Southern Delta Aquariid Peak', type: 'meteor-shower', description: 'ZHR: 25.' },
+            { date: '2027-08-12', name: 'Perseid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 100.' },
+            { date: '2027-08-17', name: 'Full Moon (Sturgeon Moon)', type: 'moon-phase' },
+            { date: '2027-08-17', name: 'Total Lunar Eclipse', type: 'eclipse', description: 'Visible from Americas, Europe, Africa.' },
+            { date: '2027-09-16', name: 'Full Moon (Corn Moon)', type: 'moon-phase' },
+            { date: '2027-09-22', name: 'September Equinox', type: 'other-event' },
+            { date: '2027-10-07', name: 'Mercury Retrograde Begins', type: 'retrograde' },
+            { date: '2027-10-15', name: 'Full Moon (Hunter\'s Moon)', type: 'moon-phase' },
+            { date: '2027-10-21', name: 'Orionid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 20.' },
+            { date: '2027-10-25', name: 'Saturn Retrograde Ends', type: 'retrograde' },
+            { date: '2027-10-28', name: 'Mercury Retrograde Ends', type: 'retrograde' },
+            { date: '2027-11-14', name: 'Full Moon (Beaver Moon)', type: 'moon-phase' },
+            { date: '2027-11-17', name: 'Leonid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10-15.' },
+            { date: '2027-12-13', name: 'Geminid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 150.' },
+            { date: '2027-12-14', name: 'Full Moon (Cold Moon)', type: 'moon-phase' },
+            { date: '2027-12-21', name: 'December Solstice', type: 'other-event' },
+            { date: '2027-12-22', name: 'Ursid Meteor Shower Peak', type: 'meteor-shower', description: 'ZHR: 10.' },
+        ];
+
+        // Combine all events
+        const allEvents = [...astronomicalEvents, ...usaHolidays];
+
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const calendarDaysEl = document.getElementById('calendarDays');
+        const currentMonthYearEl = document.getElementById('currentMonthYear');
+        const prevMonthBtn = document.getElementById('prevMonth');
+        const nextMonthBtn = document.getElementById('nextMonth');
+        const goalsMonthYearEl = document.getElementById('goalsMonthYear');
+        const goalsContainer = document.getElementById('goalsContainer');
+
+        // Function to get moon phase emoji based on lunar cycle percentage
+        function getMoonPhaseEmoji(phase) {
+            if (phase >= 0 && phase < 1.84566) return '🌑'; // New Moon
+            if (phase >= 1.84566 && phase < 5.53699) return '🌒'; // Waxing Crescent
+            if (phase >= 5.53699 && phase < 9.22831) return '🌓'; // First Quarter
+            if (phase >= 9.22831 && phase < 12.91963) return '🌔'; // Waxing Gibbous
+            if (phase >= 12.91963 && phase < 16.61096) return '🌕'; // Full Moon
+            if (phase >= 16.61096 && phase < 20.30228) return '🌖'; // Waning Gibbous
+            if (phase >= 20.30228 && phase < 23.99361) return '🌗'; // Last Quarter
+            if (phase >= 23.99361 && phase < 27.68493) return '🌘'; // Waning Crescent
+            return '🌑'; // Default to New Moon
+        }
+
+        // Function to calculate moon phase for a given date
+        function calculateMoonPhase(year, month, day) {
+            const date = new Date(year, month, day);
+            // Using a known New Moon date (January 29, 2025) as a reference point (UTC)
+            const knownNewMoon = new Date('2025-01-29T00:00:00Z');
+            const msPerDay = 1000 * 60 * 60 * 24;
+
+            // Calculate days difference in UTC to avoid local timezone issues affecting phase calculation
+            const daysSinceNewMoon = (Date.UTC(year, month, day) - knownNewMoon.getTime()) / msPerDay;
+            const lunarCycleLength = 29.53058867; // Average lunar cycle length
+            const phase = daysSinceNewMoon % lunarCycleLength;
+
+            // Adjust phase to be positive if it's negative (due to modulo with negative numbers)
+            return getMoonPhaseEmoji(phase < 0 ? phase + lunarCycleLength : phase);
+        }
+
+        function toggleHolidayHistory(event) {
+            const historyContent = event.target.nextElementSibling;
+            if (historyContent) {
+                historyContent.classList.toggle('expanded');
+            }
+        }
+
+        // --- Goal Saving/Loading Logic ---
+        function getGoalsLocalStorageKey(year, month) {
+            return `goals_${year}_${String(month + 1).padStart(2, '0')}`;
+        }
+
+        function saveGoals() {
+            const goals = [];
+            document.querySelectorAll('.goal-item').forEach((item, index) => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const textSpan = item.querySelector('.goal-text');
+                goals.push({
+                    text: textSpan.textContent.trim(),
+                    completed: checkbox.checked
+                });
+            });
+            const key = getGoalsLocalStorageKey(currentYear, currentMonth);
+            localStorage.setItem(key, JSON.stringify(goals));
+        }
+
+        function loadGoals() {
+            const key = getGoalsLocalStorageKey(currentYear, currentMonth);
+            const savedGoals = localStorage.getItem(key);
+            goalsContainer.innerHTML = ''; // Clear existing goals
+
+            let goalsToRender = [];
+            if (savedGoals) {
+                goalsToRender = JSON.parse(savedGoals);
+            } else {
+                // Initialize with empty goals if none saved
+                for (let i = 0; i < 5; i++) {
+                    goalsToRender.push({ text: '', completed: false });
+                }
+            }
+
+            goalsToRender.forEach((goal, index) => {
+                const goalItem = document.createElement('div');
+                goalItem.classList.add('goal-item');
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = goal.completed;
+                checkbox.addEventListener('change', (e) => {
+                    e.target.nextElementSibling.classList.toggle('completed', e.target.checked);
+                    saveGoals();
+                });
+
+                const textSpan = document.createElement('span');
+                textSpan.classList.add('goal-text');
+                textSpan.contentEditable = true;
+                textSpan.dataset.placeholder = `${index + 1}. My goal...`; // Set placeholder
+                textSpan.textContent = goal.text;
+                textSpan.classList.toggle('completed', goal.completed); // Apply completed class
+
+                textSpan.addEventListener('input', saveGoals);
+
+                goalItem.appendChild(checkbox);
+                goalItem.appendChild(textSpan);
+                goalsContainer.appendChild(goalItem);
+            });
+        }
+
+        function renderCalendar(year, month) {
+            calendarDaysEl.innerHTML = ''; // Clear previous days
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startingDay = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+
+            currentMonthYearEl.textContent = `${monthNames[month]} ${year}`;
+            goalsMonthYearEl.textContent = `${monthNames[month]} ${year}`; // Update goals card title
+
+            // Load goals for the newly rendered month
+            loadGoals();
+
+            // Add blank days for the start of the month
+            for (let i = 0; i < startingDay; i++) {
+                const blankCell = document.createElement('div');
+                blankCell.classList.add('day-cell', 'bg-gray-800');
+                calendarDaysEl.appendChild(blankCell);
+            }
+
+            // Add days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.classList.add('day-cell');
+
+                const today = new Date();
+                if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+                    dayCell.classList.add('today');
+                }
+
+                const dayNumberEl = document.createElement('div');
+                dayNumberEl.classList.add('day-number');
+                dayNumberEl.textContent = day;
+                dayCell.appendChild(dayNumberEl);
+
+                // Add moon phase emoji
+                const moonPhaseEmoji = calculateMoonPhase(year, month, day);
+                const moonIconEl = document.createElement('span');
+                moonIconEl.classList.add('moon-icon');
+                moonIconEl.textContent = moonPhaseEmoji;
+                dayCell.appendChild(moonIconEl);
+
+                // Add all events for this day (astronomical and holidays)
+                const currentDayFormatted = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const eventsForDay = allEvents.filter(event => event.date === currentDayFormatted);
+
+                // Sort events to ensure consistent display (e.g., holidays first, then others)
+                eventsForDay.sort((a, b) => {
+                    if (a.type === 'holiday' && b.type !== 'holiday') return -1;
+                    if (a.type !== 'holiday' && b.type === 'holiday') return 1;
+                    return 0; // Maintain original order for same types
+                });
+
+                eventsForDay.forEach(event => {
+                    const eventEl = document.createElement('p');
+                    eventEl.classList.add('event-text', event.type);
+                    eventEl.textContent = `${event.name}${event.description ? `: ${event.description}` : ''}`;
+                    dayCell.appendChild(eventEl);
+
+                    if (event.type === 'holiday' && event.history) {
+                        const historyToggle = document.createElement('span');
+                        historyToggle.classList.add('holiday-history-toggle');
+                        historyToggle.textContent = 'History';
+                        historyToggle.onclick = toggleHolidayHistory;
+                        dayCell.appendChild(historyToggle);
+
+                        const historyContent = document.createElement('div');
+                        historyContent.classList.add('holiday-history-content');
+                        historyContent.textContent = event.history;
+                        dayCell.appendChild(historyContent);
+                    }
+                });
+
+                calendarDaysEl.appendChild(dayCell);
+            }
+        }
+
+        // Event Listeners for navigation
+        prevMonthBtn.addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar(currentYear, currentMonth);
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar(currentYear, currentMonth);
+        });
+
+        // Initial render on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCalendar(currentYear, currentMonth);
+        });
+    </script>
+
+</body>
+</html>
